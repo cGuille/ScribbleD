@@ -1,5 +1,5 @@
 * {
-    color: rgb(50, 50, 50);
+    color: rgb(40, 40, 40);
     box-sizing: border-box;
 }
 
@@ -14,7 +14,7 @@ header {
     justify-content: space-evenly;
     align-items: center;
     height: 7%;
-    background-color: rgba(0, 0, 0, 0.03);
+    background-color: rgb(250, 250, 250);
     text-align: center;
 }
 
@@ -22,11 +22,18 @@ header * {
     font-family: Arial;
     font-weight: normal;
     margin: 0;
-    font-size: 1.5em;
+    font-size: 1.5rem;
 }
 
 header #scribble-date {
-    color: rgba(50, 50, 50, 0.5);
+    color: rgba(100, 100, 100);
+    border: none;
+    outline: none;
+    /* background-color: rgba(0, 0, 0, 0); */
+    background-color: rgb(253, 253, 253);
+    font-size: 1.4rem;
+    padding: 0.2rem;
+    border-radius: 0.5rem;
 }
 
 main {
@@ -38,8 +45,8 @@ main {
     height: 100%;
     width: 100%;
     margin: 0;
-    padding: 1.5em 2.5em;
+    padding: 1.5rem 2.5rem;
     border: none;
     outline: none;
-    font-size: 1em;
+    font-size: 1rem;
 }
