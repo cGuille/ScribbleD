@@ -44,7 +44,7 @@ function loadScribbleFor(day, options = {}) {
 
             localStorage.setItem(key, record);
         } else {
-            scribbler.value = "No scribble this day…";
+            scribbler.value = 'No scribble this day…';
             scribbler.setAttribute('readonly', true);
         }
 
