@@ -5,27 +5,46 @@ import { dirname } from 'path';
 import glob from 'glob-promise';
 import chalk from 'chalk';
 
-class Report {
-    static success(suite) {
-        return new this(suite);
+class SuiteReport {
+    constructor(suitePath) {
+        this.suitePath = suitePath;
+        this.testCaseReports = [];
     }
 
-    static uncaughtError(suite, error) {
-        const report = new this(suite);
+    isSuccess() {
+        return this.testCaseReports.every(report => report.isSuccess());
+    }
+
+    addTestCaseReports(testCaseReports) {
+        Array.prototype.push.apply(this.testCaseReports, testCaseReports);
+    }
+}
+
+class TestCaseReport {
+    static success(testCase) {
+        return new this(testCase);
+    }
+
+    static uncaughtError(testCase, error) {
+        const report = new this(testCase);
         report.uncaughtError = error;
         return report;
     }
 
-    static assertionFailure(suite, assertion) {
-        const report = new this(suite);
+    static assertionFailure(testCase, assertion) {
+        const report = new this(testCase);
         report.assertionFailed = assertion;
         return report;
     }
 
-    constructor(suite) {
-        this.suite = suite;
+    constructor(testCase) {
+        this.testCase = testCase;
         this.uncaughtError = null;
         this.assertionFailed = null;
+    }
+
+    get description() {
+        return this.testCase.description || this.testCase.name;
     }
 
     isSuccess() {
@@ -45,6 +64,7 @@ async function runner(reporter) {
     const runnerUrl = url.parse(import.meta.url);
     const suites = await glob('./**/*.test.*', { cwd: dirname(runnerUrl.path) });
     const reports = await Promise.all(suites.map(runSuite));
+
     const passed = reports.every(report => report.isSuccess());
 
     reporter(reports);
@@ -54,54 +74,61 @@ async function runner(reporter) {
 
 function cliReporter(reports) {
     const titleStyle = chalk.underline.blue;
-    const successStyle = chalk.bold.green;
-    const failureStyle = chalk.bold.red;
+    const successStyle = chalk.green;
+    const failureStyle = chalk.red;
 
-    console.log('');
-    console.log(titleStyle(`Tests report from ${reports.length} suites:`));
-    console.log('');
+    console.log(titleStyle(`Tests reports from ${reports.length} suite${reports.length > 1 ? 's' : ''}:`));
 
-    reports.forEach(report => {
-        if (report.isSuccess()) {
-            console.log(successStyle(`PASS ${report.suite}`));
-            return;
-        }
-
-        console.log('');
-        console.log(failureStyle(`FAIL ${report.suite}:`));
-        console.log('');
-        if (report.isUncaughtErrorFailure()) {
-            console.log(`Uncaught error of type ${report.uncaughtError.name}:`);
-            console.log(chalk.underline('Message:'), report.uncaughtError.message);
-            console.log(chalk.underline('Code:'), report.uncaughtError.code);
-            console.log(chalk.underline('Stack trace:'), report.uncaughtError.stack);
-        } else if (report.isAssertionFailure()) {
-            console.log(`Failed to assert that ${report.assertionFailed.message}:`);
-            console.log(chalk.underline('Assertion type:'), report.assertionFailed.operator);
-            console.log(chalk.underline('Expected:'), report.assertionFailed.expected);
-            console.log(chalk.underline('Actual:'), report.assertionFailed.actual);
+    reports.forEach(suiteReport => {
+        if (suiteReport.isSuccess()) {
+            console.log(successStyle(`PASS ${suiteReport.suitePath}`));
         } else {
-            throw new Error('Unknown failure type');
+            console.log(failureStyle(`FAIL ${suiteReport.suitePath}`));
         }
-        console.log('');
-        console.log('');
+
+        suiteReport.testCaseReports.forEach(testCaseReport => {
+            if (testCaseReport.isSuccess()) {
+                console.log(successStyle(`✓ ${testCaseReport.description}`));
+                return;
+            }
+
+            console.log(failureStyle(`✗ ${testCaseReport.description}:`));
+            if (testCaseReport.isUncaughtErrorFailure()) {
+                console.log(`Uncaught error of type ${testCaseReport.uncaughtError.name}:`);
+                console.log('Message:', chalk.bold(testCaseReport.uncaughtError.message));
+                console.log('Code:', chalk.bold(testCaseReport.uncaughtError.code));
+                console.log('Stack trace:', chalk.bold(testCaseReport.uncaughtError.stack));
+            } else if (testCaseReport.isAssertionFailure()) {
+                console.log(`Failed to assert that ${chalk.bold(testCaseReport.assertionFailed.message)}:`);
+                console.log('Assertion type:', chalk.bold(testCaseReport.assertionFailed.operator));
+                console.log('Expected:', chalk.bold(testCaseReport.assertionFailed.expected));
+                console.log('Actual:', chalk.bold(testCaseReport.assertionFailed.actual));
+            } else {
+                throw new Error('Unknown failure type');
+            }
+        });
     });
 }
 
 runner(cliReporter);
 
 async function runSuite(suitePath) {
-    const { default: suite } = await import(suitePath);
+    const suite = await import(suitePath);
+    const report = new SuiteReport(suitePath);
 
-    try {
-        suite();
-    } catch (error) {
-        if (!(error instanceof AssertionError)) {
-            return Report.uncaughtError(suitePath, error);
-        } else {
-            return Report.assertionFailure(suitePath, error);
+    report.addTestCaseReports(Object.values(suite).map(testCase => {
+        try {
+            testCase();
+        } catch (error) {
+            if (!(error instanceof AssertionError)) {
+                return TestCaseReport.uncaughtError(testCase, error);
+            } else {
+                return TestCaseReport.assertionFailure(testCase, error);
+            }
         }
-    }
 
-    return Report.success(suitePath);
+        return TestCaseReport.success(testCase);
+    }));
+
+    return report;
 }
