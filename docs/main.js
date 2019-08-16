@@ -15,7 +15,13 @@ scribbler.addEventListener('keyup', debounce(800, function saveScribblerOnChange
         return;
     }
 
-    const scribble = { content: scribbler.value.trim() };
+    const content = scribbler.value.trim();
+    if (!content) {
+        localStorage.removeItem(todaysKey);
+        return;
+    }
+
+    const scribble = { content: content };
     const record = JSON.stringify(scribble);
 
     localStorage.setItem(todaysKey, record);
@@ -39,14 +45,11 @@ function loadScribbleFor(day, options = {}) {
 
     if (record === null) {
         if (options.init) {
-            const scribble = { content: '' };
-            const record = JSON.stringify(scribble);
-
-            localStorage.setItem(key, record);
-        } else {
-            scribbler.value = 'No scribble this day…';
-            scribbler.setAttribute('readonly', true);
+            return;
         }
+
+        scribbler.value = 'No scribble this day…';
+        scribbler.setAttribute('readonly', true);
 
         return;
     }
